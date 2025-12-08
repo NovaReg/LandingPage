@@ -40,8 +40,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start; /* Changed from center to flex-start */
             position: relative;
+            padding-top: 2rem; /* Extra top padding to prevent cut-off */
         }
 
         /* Animated background */
@@ -119,12 +120,14 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start; /* Changed from center to flex-start */
             padding: 2rem;
-            padding-top: 3rem; /* Extra top padding to ensure lighthouse isn't cut off */
-            padding-bottom: calc(2rem + 28px + 1.5rem + 1rem); /* Extra space for fixed footer logo */
+            padding-top: 4rem; /* Increased top padding to ensure lighthouse isn't cut off */
+            padding-bottom: 2rem; /* Reduced since footer is now in content flow */
             max-width: 900px;
             text-align: center;
+            margin-top: auto; /* Push to top but allow scrolling */
+            margin-bottom: auto;
         }
 
         /* Logo */
@@ -342,10 +345,8 @@
 
         /* Footer logo */
         .footer-logo {
-            position: fixed;
-            bottom: 1.5rem;
-            left: 50%;
-            transform: translateX(-50%);
+            position: relative;
+            margin: 2rem auto 1.5rem;
             height: 28px;
             width: auto;
             opacity: 0.5;
@@ -366,7 +367,7 @@
             
             .container {
                 padding-top: 2rem; /* Less top padding on mobile */
-                padding-bottom: calc(2rem + 28px + 1.5rem + 0.5rem); /* Slightly less padding on mobile */
+                padding-bottom: 2rem; /* Consistent padding since footer is in flow */
             }
         }
     </style>
@@ -412,9 +413,9 @@
         <div class="divider"></div>
 
         <p class="status">Something is coming</p>
-    </main>
 
-    <img src="assets/NovaReg_Logo.png" alt="" class="footer-logo">
+        <img src="assets/NovaReg_Logo.png" alt="" class="footer-logo">
+    </main>
 
     <script>
         // ============================================
@@ -977,9 +978,9 @@
                 }
                 
                 const ringConfigs = [
-                    { radius: 200, count: 45, minSize: 1.5, maxSize: 3 },
-                    { radius: 215, count: 50, minSize: 1.2, maxSize: 2.5 },
-                    { radius: 230, count: 55, minSize: 1, maxSize: 2 },
+                    { radius: 140, count: 45, minSize: 1.5, maxSize: 3 },
+                    { radius: 150, count: 50, minSize: 1.2, maxSize: 2.5 },
+                    { radius: 160, count: 55, minSize: 1, maxSize: 2 },
                 ].map(rc => ({
                     ...rc,
                     radius: rc.radius * (this.canvas.width / 750)
@@ -1099,8 +1100,9 @@
                 this.sweepSpeed = 0.006;
                 this.intensity = 1;
                 
-                // Lighthouse top position relative to image (approximately 16% from top for brightest part, centered)
-                this.lighthouseTopRatio = 0.16;
+                // Lighthouse top position relative to image (approximately 18% from top for brightest part, centered)
+                // Lowered by ~10px more from previous 0.16
+                this.lighthouseTopRatio = 0.18;
                 
                 this.secondaryBeams = [
                     { angleOffset: 0.18, length: 0.55, width: 0.12, opacity: 0.25 },
@@ -1447,11 +1449,11 @@
                     centerX: 0.5,
                     centerY: 0.295,
                     layers: [
-                        { minRadius: 45, maxRadius: 65, nodeCount: 25, minSize: 2, maxSize: 4.5 },
-                        { minRadius: 65, maxRadius: 90, nodeCount: 35, minSize: 1.8, maxSize: 4 },
-                        { minRadius: 90, maxRadius: 120, nodeCount: 45, minSize: 1.5, maxSize: 3.5 },
-                        { minRadius: 120, maxRadius: 155, nodeCount: 40, minSize: 1.2, maxSize: 3 },
-                        { minRadius: 155, maxRadius: 190, nodeCount: 35, minSize: 1, maxSize: 2.5 },
+                        { minRadius: 35, maxRadius: 50, nodeCount: 25, minSize: 2, maxSize: 4.5 },
+                        { minRadius: 50, maxRadius: 70, nodeCount: 35, minSize: 1.8, maxSize: 4 },
+                        { minRadius: 70, maxRadius: 95, nodeCount: 45, minSize: 1.5, maxSize: 3.5 },
+                        { minRadius: 95, maxRadius: 120, nodeCount: 40, minSize: 1.2, maxSize: 3 },
+                        { minRadius: 120, maxRadius: 145, nodeCount: 35, minSize: 1, maxSize: 2.5 }, // Reduced outer circle by ~half
                     ]
                 };
                 
