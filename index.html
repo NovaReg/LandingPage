@@ -128,6 +128,10 @@
             text-align: center;
             margin-top: auto; /* Push to top but allow scrolling */
             margin-bottom: auto;
+            /* Ensure no visible borders */
+            border: none;
+            outline: none;
+            overflow: visible; /* Don't clip canvas extensions */
         }
 
         /* Logo */
@@ -137,6 +141,9 @@
             width: min(500px, 80vw);
             height: auto;
             overflow: visible; /* Allow light beam to extend beyond bounds */
+            /* Ensure no visible borders */
+            border: none;
+            outline: none;
         }
 
         .logo-glow {
@@ -179,6 +186,10 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
+            /* Ensure no visible borders or outlines */
+            border: none;
+            outline: none;
+            background: transparent;
         }
 
         #backgroundCanvas {
@@ -977,10 +988,11 @@
                     }
                 }
                 
+                // Ring nodes positioned just outside the network nodes (outer layer max radius is ~145)
                 const ringConfigs = [
-                    { radius: 140, count: 45, minSize: 1.5, maxSize: 3 },
-                    { radius: 150, count: 50, minSize: 1.2, maxSize: 2.5 },
-                    { radius: 160, count: 55, minSize: 1, maxSize: 2 },
+                    { radius: 150, count: 45, minSize: 1.5, maxSize: 3 },
+                    { radius: 160, count: 50, minSize: 1.2, maxSize: 2.5 },
+                    { radius: 170, count: 55, minSize: 1, maxSize: 2 },
                 ].map(rc => ({
                     ...rc,
                     radius: rc.radius * (this.canvas.width / 750)
@@ -1121,8 +1133,9 @@
                 const wrapperRect = this.logoWrapper.getBoundingClientRect();
                 const logoRect = this.logoImage.getBoundingClientRect();
                 
-                // Make canvas larger to allow light beam to extend beyond logo bounds
-                const padding = 200; // Extra space for light beam extension
+                // Make canvas much larger to allow light beam to extend beyond logo bounds
+                // Increased padding to prevent visible borders on mobile
+                const padding = Math.max(300, wrapperRect.width * 0.6); // Larger padding, at least 300px or 60% of width
                 this.canvas.width = wrapperRect.width + (padding * 2);
                 this.canvas.height = wrapperRect.height + (padding * 2);
                 this.canvas.style.width = (wrapperRect.width + (padding * 2)) + 'px';
@@ -1135,14 +1148,17 @@
                 const logoTopOffset = logoRect.top - wrapperRect.top;
                 const logoHeight = logoRect.height;
                 
-                // Lighthouse top is approximately 16% from the top of the image (brightest part)
+                // Lighthouse top is approximately 18% from the top of the image (brightest part)
                 // Canvas position includes padding, but light origin is relative to canvas
-                this.lightX = padding + (wrapperRect.width * 0.5); // Centered horizontally (canvas coordinates)
-                this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio); // Top of lighthouse (canvas coordinates)
+                // Adjust for positioning: 5-10px right, 2-5px down (using ~7px right, ~3px down)
+                const lightOffsetX = 7; // Move right to correct position
+                const lightOffsetY = 3; // Move down to correct position
+                this.lightX = padding + (wrapperRect.width * 0.5) + lightOffsetX; // Centered horizontally + offset (canvas coordinates)
+                this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY; // Top of lighthouse + offset (canvas coordinates)
                 
                 // Update light core position (relative to logo wrapper, not canvas)
-                const lightXWrapper = wrapperRect.width * 0.5; // Centered horizontally
-                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio); // Top of lighthouse
+                const lightXWrapper = (wrapperRect.width * 0.5) + lightOffsetX; // Centered horizontally + offset
+                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY; // Top of lighthouse + offset
                 this.core.style.left = lightXWrapper + 'px';
                 this.core.style.top = lightYWrapper + 'px';
                 
@@ -1160,15 +1176,17 @@
                 const logoRect = this.logoImage.getBoundingClientRect();
                 const logoTopOffset = logoRect.top - wrapperRect.top;
                 const logoHeight = logoRect.height;
-                const padding = 200; // Match resize padding
+                const padding = Math.max(300, wrapperRect.width * 0.6); // Match resize padding
+                const lightOffsetX = 7; // Move right to correct position
+                const lightOffsetY = 3; // Move down to correct position
                 
                 // Canvas coordinates (with padding)
-                this.lightX = padding + (wrapperRect.width * 0.5);
-                this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio);
+                this.lightX = padding + (wrapperRect.width * 0.5) + lightOffsetX;
+                this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY;
                 
                 // Wrapper coordinates (for core and rings)
-                const lightXWrapper = wrapperRect.width * 0.5;
-                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio);
+                const lightXWrapper = (wrapperRect.width * 0.5) + lightOffsetX;
+                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY;
                 
                 // Update core and ring positions (relative to logo wrapper)
                 this.core.style.left = lightXWrapper + 'px';
