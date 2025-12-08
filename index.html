@@ -129,6 +129,8 @@
         .logo-wrapper {
             position: relative;
             margin-bottom: 2rem;
+            width: min(500px, 80vw);
+            height: auto;
         }
 
         .logo-glow {
@@ -155,11 +157,87 @@
         }
 
         .logo {
-            width: min(500px, 80vw);
+            width: 100%;
             height: auto;
             position: relative;
             filter: drop-shadow(0 20px 60px rgba(26, 107, 124, 0.3));
             animation: fadeIn 2s ease-out;
+            display: block;
+        }
+
+        /* Animation canvas layers */
+        .animation-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #backgroundCanvas {
+            z-index: 0;
+        }
+
+        #circuitCanvas {
+            z-index: 1;
+        }
+
+        #networkCanvas {
+            z-index: 2;
+        }
+
+        #lightBeamCanvas {
+            z-index: 5;
+            mix-blend-mode: screen;
+        }
+
+        #particleCanvas {
+            z-index: 6;
+        }
+
+        .light-core {
+            position: absolute;
+            width: 55px;
+            height: 55px;
+            background: radial-gradient(circle, 
+                rgba(255, 255, 250, 1) 0%, 
+                rgba(255, 250, 220, 0.95) 15%, 
+                rgba(255, 240, 180, 0.7) 35%, 
+                rgba(255, 220, 120, 0.3) 60%, 
+                transparent 100%);
+            border-radius: 50%;
+            z-index: 7;
+            pointer-events: none;
+            transform: translateX(-50%);
+        }
+
+        .ring-container {
+            position: absolute;
+            width: 0;
+            height: 0;
+            z-index: 3;
+        }
+
+        .light-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 1px solid rgba(255, 240, 180, 0.25);
+            z-index: 3;
+            pointer-events: none;
+            animation: ringExpand 4s ease-out infinite;
+        }
+
+        .light-ring:nth-child(1) { animation-delay: 0s; }
+        .light-ring:nth-child(2) { animation-delay: 1.33s; }
+        .light-ring:nth-child(3) { animation-delay: 2.66s; }
+
+        @keyframes ringExpand {
+            0% { width: 30px; height: 30px; opacity: 0.5; }
+            100% { width: 250px; height: 250px; opacity: 0; }
         }
 
         @keyframes fadeIn {
@@ -298,9 +376,20 @@
     </div>
 
     <main class="container">
-        <div class="logo-wrapper">
+        <div class="logo-wrapper" id="logoWrapper">
             <div class="logo-glow"></div>
-            <img src="assets/NovaRegHEROlogo.png" alt="NovaReg.Ai" class="logo">
+            <canvas id="backgroundCanvas" class="animation-canvas"></canvas>
+            <canvas id="circuitCanvas" class="animation-canvas"></canvas>
+            <canvas id="networkCanvas" class="animation-canvas"></canvas>
+            <div class="ring-container" id="ringContainer">
+                <div class="light-ring"></div>
+                <div class="light-ring"></div>
+                <div class="light-ring"></div>
+            </div>
+            <img src="SimpleNovaRegHero.png" alt="NovaReg.Ai" class="logo" id="logoImage">
+            <div class="light-core" id="lightCore"></div>
+            <canvas id="lightBeamCanvas" class="animation-canvas"></canvas>
+            <canvas id="particleCanvas" class="animation-canvas"></canvas>
         </div>
 
         <div class="emoticon">🏛️ · 🍁 · 💡</div>
@@ -319,7 +408,22 @@
     <img src="assets/NovaReg_Logo.png" alt="" class="footer-logo">
 
     <script>
-        // Generate floating particles
+        // ============================================
+        // UTILITIES
+        // ============================================
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const dist = (x1, y1, x2, y2) => Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+        const rand = (min, max) => min + Math.random() * (max - min);
+        const randInt = (min, max) => Math.floor(rand(min, max + 1));
+        const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
+        const easeOutQuad = t => 1 - (1 - t) * (1 - t);
+
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let mouseActive = false;
+        let time = 0;
+
+        // Generate floating particles for background
         const particlesContainer = document.getElementById('particles');
         const particleCount = 30;
 
@@ -332,10 +436,1036 @@
             particle.style.animationDuration = (6 + Math.random() * 4) + 's';
             particlesContainer.appendChild(particle);
         }
+
+        // ============================================
+        // CIRCUIT BOARD PATTERNS
+        // ============================================
+        class CircuitBoard {
+            constructor(canvasId, logoWrapper) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.logoWrapper = logoWrapper;
+                this.traces = [];
+                this.junctions = [];
+                this.pulses = [];
+                
+                this.resize();
+                this.generate();
+                
+                window.addEventListener('resize', () => {
+                    this.resize();
+                    this.generate();
+                });
+            }
+            
+            resize() {
+                const rect = this.logoWrapper.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+                this.centerX = this.canvas.width * 0.5;
+                this.centerY = this.canvas.height * 0.30;
+            }
+            
+            generate() {
+                this.traces = [];
+                this.junctions = [];
+                
+                const ringRadii = [320, 340, 360, 380].map(r => r * (this.canvas.width / 750));
+                
+                for (const radius of ringRadii) {
+                    this.traces.push({
+                        type: 'arc',
+                        x: this.centerX,
+                        y: this.centerY,
+                        radius: radius,
+                        startAngle: 0,
+                        endAngle: Math.PI * 2,
+                        opacity: rand(0.08, 0.15)
+                    });
+                    
+                    const junctionCount = randInt(12, 20);
+                    for (let i = 0; i < junctionCount; i++) {
+                        const angle = (i / junctionCount) * Math.PI * 2 + rand(-0.1, 0.1);
+                        const jx = this.centerX + Math.cos(angle) * radius;
+                        const jy = this.centerY + Math.sin(angle) * radius;
+                        
+                        this.junctions.push({
+                            x: jx,
+                            y: jy,
+                            size: rand(2, 4),
+                            opacity: rand(0.15, 0.3),
+                            pulsePhase: rand(0, Math.PI * 2),
+                            pulseSpeed: rand(0.02, 0.05)
+                        });
+                        
+                        if (Math.random() > 0.6) {
+                            const traceLength = rand(15, 40);
+                            this.traces.push({
+                                type: 'line',
+                                x1: jx,
+                                y1: jy,
+                                x2: jx + Math.cos(angle) * traceLength,
+                                y2: jy + Math.sin(angle) * traceLength,
+                                opacity: rand(0.08, 0.18)
+                            });
+                            
+                            this.junctions.push({
+                                x: jx + Math.cos(angle) * traceLength,
+                                y: jy + Math.sin(angle) * traceLength,
+                                size: rand(1.5, 3),
+                                opacity: rand(0.1, 0.25),
+                                pulsePhase: rand(0, Math.PI * 2),
+                                pulseSpeed: rand(0.015, 0.04)
+                            });
+                        }
+                        
+                        if (Math.random() > 0.7) {
+                            const perpAngle = angle + Math.PI / 2;
+                            const perpLength = rand(10, 25);
+                            this.traces.push({
+                                type: 'line',
+                                x1: jx,
+                                y1: jy,
+                                x2: jx + Math.cos(perpAngle) * perpLength,
+                                y2: jy + Math.sin(perpAngle) * perpLength,
+                                opacity: rand(0.06, 0.12)
+                            });
+                        }
+                    }
+                }
+                
+                for (let i = 0; i < 30; i++) {
+                    const angle = rand(0, Math.PI * 2);
+                    const r1 = ringRadii[randInt(0, ringRadii.length - 2)];
+                    const r2 = ringRadii[randInt(1, ringRadii.length - 1)];
+                    
+                    if (r2 > r1) {
+                        this.traces.push({
+                            type: 'line',
+                            x1: this.centerX + Math.cos(angle) * r1,
+                            y1: this.centerY + Math.sin(angle) * r1,
+                            x2: this.centerX + Math.cos(angle) * r2,
+                            y2: this.centerY + Math.sin(angle) * r2,
+                            opacity: rand(0.05, 0.12)
+                        });
+                    }
+                }
+            }
+            
+            update() {
+                for (const j of this.junctions) {
+                    j.pulsePhase += j.pulseSpeed;
+                }
+                
+                if (Math.random() < 0.03 && this.pulses.length < 20) {
+                    const trace = this.traces[randInt(0, this.traces.length - 1)];
+                    if (trace.type === 'line') {
+                        this.pulses.push({
+                            trace: trace,
+                            progress: 0,
+                            speed: rand(0.01, 0.03),
+                            size: rand(2, 4),
+                            reverse: Math.random() > 0.5
+                        });
+                    }
+                }
+                
+                this.pulses = this.pulses.filter(p => {
+                    p.progress += p.speed;
+                    return p.progress < 1;
+                });
+            }
+            
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                for (const trace of this.traces) {
+                    ctx.strokeStyle = `rgba(80, 160, 200, ${trace.opacity})`;
+                    ctx.lineWidth = 1;
+                    
+                    if (trace.type === 'arc') {
+                        ctx.beginPath();
+                        ctx.arc(trace.x, trace.y, trace.radius, trace.startAngle, trace.endAngle);
+                        ctx.stroke();
+                    } else if (trace.type === 'line') {
+                        ctx.beginPath();
+                        ctx.moveTo(trace.x1, trace.y1);
+                        ctx.lineTo(trace.x2, trace.y2);
+                        ctx.stroke();
+                    }
+                }
+                
+                for (const j of this.junctions) {
+                    const pulse = (Math.sin(j.pulsePhase) + 1) * 0.5;
+                    const opacity = j.opacity * (0.5 + pulse * 0.5);
+                    const size = j.size * (0.8 + pulse * 0.4);
+                    
+                    const glow = ctx.createRadialGradient(j.x, j.y, 0, j.x, j.y, size * 3);
+                    glow.addColorStop(0, `rgba(100, 180, 220, ${opacity})`);
+                    glow.addColorStop(1, 'transparent');
+                    ctx.beginPath();
+                    ctx.arc(j.x, j.y, size * 3, 0, Math.PI * 2);
+                    ctx.fillStyle = glow;
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(j.x, j.y, size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(150, 210, 240, ${opacity})`;
+                    ctx.fill();
+                }
+                
+                for (const p of this.pulses) {
+                    const t = p.reverse ? 1 - p.progress : p.progress;
+                    const x = lerp(p.trace.x1, p.trace.x2, easeInOutSine(t));
+                    const y = lerp(p.trace.y1, p.trace.y2, easeInOutSine(t));
+                    const alpha = Math.sin(p.progress * Math.PI);
+                    
+                    const glow = ctx.createRadialGradient(x, y, 0, x, y, p.size * 4);
+                    glow.addColorStop(0, `rgba(150, 220, 255, ${alpha * 0.8})`);
+                    glow.addColorStop(0.5, `rgba(100, 180, 230, ${alpha * 0.3})`);
+                    glow.addColorStop(1, 'transparent');
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, p.size * 4, 0, Math.PI * 2);
+                    ctx.fillStyle = glow;
+                    ctx.fill();
+                }
+            }
+        }
+
+        // ============================================
+        // DATA PACKET
+        // ============================================
+        class DataPacket {
+            constructor(startNode, endNode, fast = false) {
+                this.startNode = startNode;
+                this.endNode = endNode;
+                this.progress = 0;
+                this.speed = fast ? rand(0.02, 0.04) : rand(0.006, 0.018);
+                this.size = rand(1.5, 3.5);
+                this.hue = rand(180, 220);
+                this.trail = [];
+            }
+            
+            update() {
+                if (this.progress > 0.05) {
+                    this.trail.push({ x: this.x, y: this.y, alpha: 1 });
+                    if (this.trail.length > 8) this.trail.shift();
+                }
+                
+                for (const t of this.trail) {
+                    t.alpha *= 0.85;
+                }
+                
+                this.progress += this.speed;
+                return this.progress < 1;
+            }
+            
+            get x() {
+                return lerp(this.startNode.x, this.endNode.x, easeInOutSine(this.progress));
+            }
+            
+            get y() {
+                return lerp(this.startNode.y, this.endNode.y, easeInOutSine(this.progress));
+            }
+            
+            draw(ctx) {
+                const fadeIn = Math.min(1, this.progress * 4);
+                const fadeOut = Math.min(1, (1 - this.progress) * 4);
+                const alpha = fadeIn * fadeOut;
+                
+                for (let i = 0; i < this.trail.length; i++) {
+                    const t = this.trail[i];
+                    const trailAlpha = t.alpha * alpha * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, this.size * 0.6, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsla(${this.hue}, 70%, 65%, ${trailAlpha})`;
+                    ctx.fill();
+                }
+                
+                const glow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 5);
+                glow.addColorStop(0, `hsla(${this.hue}, 80%, 75%, ${alpha})`);
+                glow.addColorStop(0.4, `hsla(${this.hue}, 70%, 60%, ${alpha * 0.4})`);
+                glow.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 5, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, 90%, 85%, ${alpha})`;
+                ctx.fill();
+            }
+        }
+
+        // ============================================
+        // NETWORK NODE
+        // ============================================
+        class Node {
+            constructor(canvas, config, layer) {
+                this.canvas = canvas;
+                this.config = config;
+                this.layer = layer;
+                this.initialize();
+            }
+            
+            initialize() {
+                const cx = this.canvas.width * this.config.centerX;
+                const cy = this.canvas.height * this.config.centerY;
+                
+                const layerConfig = this.config.layers[this.layer];
+                this.angle = rand(0, Math.PI * 2);
+                this.targetRadius = rand(layerConfig.minRadius, layerConfig.maxRadius);
+                
+                this.x = cx + Math.cos(this.angle) * this.targetRadius;
+                this.y = cy + Math.sin(this.angle) * this.targetRadius;
+                
+                const speedMult = 1 + (this.config.layers.length - this.layer) * 0.15;
+                const speed = rand(0.08, 0.25) * speedMult;
+                this.vx = -Math.sin(this.angle) * speed;
+                this.vy = Math.cos(this.angle) * speed;
+                
+                const sizeBoost = (this.config.layers.length - this.layer) * 0.3;
+                this.baseSize = rand(layerConfig.minSize, layerConfig.maxSize) + sizeBoost;
+                this.size = this.baseSize;
+                this.baseOpacity = rand(0.3, 0.7) + this.layer * 0.05;
+                this.opacity = this.baseOpacity;
+                
+                this.pulsePhase = rand(0, Math.PI * 2);
+                this.pulseSpeed = rand(0.015, 0.045);
+                this.wobblePhase = rand(0, Math.PI * 2);
+                this.wobbleSpeed = rand(0.008, 0.025);
+                this.wobbleAmount = rand(3, 12);
+                
+                this.direction = Math.random() > 0.5 ? 1 : -1;
+                this.orbitEccentricity = rand(0.92, 1.08);
+                
+                this.highlightIntensity = 0;
+                this.trail = [];
+                this.maxTrailLength = Math.max(3, 8 - this.layer);
+            }
+            
+            update(lightAngle, lightIntensity) {
+                const cx = this.canvas.width * this.config.centerX;
+                const cy = this.canvas.height * this.config.centerY;
+                
+                if (time % 3 === 0) {
+                    this.trail.push({ x: this.x, y: this.y, opacity: this.opacity });
+                    if (this.trail.length > this.maxTrailLength) this.trail.shift();
+                }
+                
+                const dx = this.x - cx;
+                const dy = this.y - cy;
+                const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+                const nx = dx / distance;
+                const ny = dy / distance;
+                
+                const angleToCenter = Math.atan2(dy, dx);
+                const eccentricRadius = this.targetRadius * (1 + Math.sin(angleToCenter * 2) * (this.orbitEccentricity - 1));
+                
+                const radiusError = distance - eccentricRadius;
+                const gravityStrength = 0.0005 + this.layer * 0.0001;
+                this.vx -= nx * radiusError * gravityStrength;
+                this.vy -= ny * radiusError * gravityStrength;
+                
+                const orbitStrength = 0.00025 * this.direction;
+                this.vx += -ny * orbitStrength;
+                this.vy += nx * orbitStrength;
+                
+                this.wobblePhase += this.wobbleSpeed;
+                const wobbleX = Math.sin(this.wobblePhase) * this.wobbleAmount * 0.008;
+                const wobbleY = Math.cos(this.wobblePhase * 1.3) * this.wobbleAmount * 0.008;
+                
+                const nodeAngle = Math.atan2(this.y - cy - 50, this.x - cx);
+                let angleDiff = Math.abs(nodeAngle - lightAngle);
+                if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+                
+                const inBeam = angleDiff < 0.5 && distance < 400;
+                if (inBeam) {
+                    this.highlightIntensity = lerp(this.highlightIntensity, lightIntensity * (1 - angleDiff / 0.5), 0.08);
+                } else {
+                    this.highlightIntensity = lerp(this.highlightIntensity, 0, 0.04);
+                }
+                
+                this.vx *= 0.984;
+                this.vy *= 0.984;
+                
+                this.x += this.vx + wobbleX;
+                this.y += this.vy + wobbleY;
+                
+                this.pulsePhase += this.pulseSpeed;
+                const pulse = Math.sin(this.pulsePhase);
+                this.size = this.baseSize * (0.75 + pulse * 0.25 + this.highlightIntensity * 0.4);
+                this.opacity = this.baseOpacity * (0.6 + pulse * 0.4) + this.highlightIntensity * 0.35;
+                
+                if (this.x < -100 || this.x > this.canvas.width + 100 ||
+                    this.y < -100 || this.y > this.canvas.height + 100) {
+                    this.initialize();
+                }
+            }
+            
+            drawTrail(ctx) {
+                if (this.trail.length < 2) return;
+                
+                ctx.beginPath();
+                ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                for (let i = 1; i < this.trail.length; i++) {
+                    ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                }
+                
+                const gradient = ctx.createLinearGradient(
+                    this.trail[0].x, this.trail[0].y,
+                    this.trail[this.trail.length - 1].x, this.trail[this.trail.length - 1].y
+                );
+                gradient.addColorStop(0, 'transparent');
+                gradient.addColorStop(1, `rgba(100, 180, 220, ${this.opacity * 0.12})`);
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = this.size * 0.4;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+            
+            draw(ctx) {
+                const h = this.highlightIntensity;
+                const hue = 195 + h * 25;
+                const lightness = 55 + h * 25;
+                
+                const glow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 5);
+                glow.addColorStop(0, `hsla(${hue}, 70%, ${lightness}%, ${this.opacity * 0.9})`);
+                glow.addColorStop(0.35, `hsla(${hue}, 60%, ${lightness - 10}%, ${this.opacity * 0.35})`);
+                glow.addColorStop(0.7, `hsla(${hue}, 50%, ${lightness - 20}%, ${this.opacity * 0.1})`);
+                glow.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 5, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${hue}, 80%, ${65 + h * 25}%, ${this.opacity})`;
+                ctx.fill();
+                
+                if (h > 0.15) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size * 0.45, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${h * 0.6})`;
+                    ctx.fill();
+                }
+            }
+        }
+
+        // ============================================
+        // STATIC RING NODES
+        // ============================================
+        class RingNode {
+            constructor(canvas, centerX, centerY, angle, radius, config) {
+                this.canvas = canvas;
+                this.cx = centerX;
+                this.cy = centerY;
+                this.baseAngle = angle;
+                this.angle = angle;
+                this.radius = radius;
+                this.config = config;
+                
+                this.x = this.cx + Math.cos(this.angle) * this.radius;
+                this.y = this.cy + Math.sin(this.angle) * this.radius;
+                
+                this.size = rand(config.minSize, config.maxSize);
+                this.baseOpacity = rand(0.25, 0.55);
+                this.opacity = this.baseOpacity;
+                this.pulsePhase = rand(0, Math.PI * 2);
+                this.pulseSpeed = rand(0.01, 0.03);
+                this.orbitSpeed = rand(0.0003, 0.0008) * (Math.random() > 0.5 ? 1 : -1);
+                this.highlightIntensity = 0;
+            }
+            
+            update(lightAngle, lightIntensity) {
+                this.angle += this.orbitSpeed;
+                this.x = this.cx + Math.cos(this.angle) * this.radius;
+                this.y = this.cy + Math.sin(this.angle) * this.radius;
+                
+                let angleDiff = Math.abs(this.angle - lightAngle);
+                if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+                
+                if (angleDiff < 0.6) {
+                    this.highlightIntensity = lerp(this.highlightIntensity, lightIntensity * (1 - angleDiff / 0.6), 0.06);
+                } else {
+                    this.highlightIntensity = lerp(this.highlightIntensity, 0, 0.03);
+                }
+                
+                this.pulsePhase += this.pulseSpeed;
+                const pulse = Math.sin(this.pulsePhase);
+                this.opacity = this.baseOpacity * (0.6 + pulse * 0.4) + this.highlightIntensity * 0.4;
+            }
+            
+            draw(ctx) {
+                const h = this.highlightIntensity;
+                const hue = 195 + h * 20;
+                const size = this.size * (0.85 + h * 0.3);
+                
+                const glow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, size * 4);
+                glow.addColorStop(0, `hsla(${hue}, 65%, ${55 + h * 20}%, ${this.opacity * 0.8})`);
+                glow.addColorStop(0.5, `hsla(${hue}, 55%, 45%, ${this.opacity * 0.25})`);
+                glow.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, size * 4, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${hue}, 75%, ${60 + h * 25}%, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        // ============================================
+        // DENSE NETWORK SYSTEM
+        // ============================================
+        class DenseNetworkSystem {
+            constructor(canvasId, config, logoWrapper) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.config = config;
+                this.logoWrapper = logoWrapper;
+                this.nodes = [];
+                this.ringNodes = [];
+                this.connections = [];
+                this.dataPackets = [];
+                this.lightAngle = 0;
+                this.lightIntensity = 1;
+                
+                this.resize();
+                this.createNodes();
+                
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                const rect = this.logoWrapper.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+                this.centerX = this.canvas.width * this.config.centerX;
+                this.centerY = this.canvas.height * this.config.centerY;
+            }
+            
+            createNodes() {
+                for (let layer = 0; layer < this.config.layers.length; layer++) {
+                    const layerConfig = this.config.layers[layer];
+                    for (let i = 0; i < layerConfig.nodeCount; i++) {
+                        this.nodes.push(new Node(this.canvas, this.config, layer));
+                    }
+                }
+                
+                const ringConfigs = [
+                    { radius: 290, count: 45, minSize: 1.5, maxSize: 3 },
+                    { radius: 310, count: 50, minSize: 1.2, maxSize: 2.5 },
+                    { radius: 330, count: 55, minSize: 1, maxSize: 2 },
+                ].map(rc => ({
+                    ...rc,
+                    radius: rc.radius * (this.canvas.width / 750)
+                }));
+                
+                for (const rc of ringConfigs) {
+                    for (let i = 0; i < rc.count; i++) {
+                        const angle = (i / rc.count) * Math.PI * 2 + rand(-0.05, 0.05);
+                        this.ringNodes.push(new RingNode(
+                            this.canvas, this.centerX, this.centerY, 
+                            angle, rc.radius, rc
+                        ));
+                    }
+                }
+            }
+            
+            setLightAngle(angle, intensity) {
+                this.lightAngle = angle;
+                this.lightIntensity = intensity;
+            }
+            
+            update() {
+                for (const node of this.nodes) {
+                    node.update(this.lightAngle, this.lightIntensity);
+                }
+                
+                for (const node of this.ringNodes) {
+                    node.update(this.lightAngle, this.lightIntensity);
+                }
+                
+                if (Math.random() < 0.08) {
+                    const allNodes = [...this.nodes, ...this.ringNodes];
+                    const n1 = allNodes[randInt(0, allNodes.length - 1)];
+                    const n2 = allNodes[randInt(0, allNodes.length - 1)];
+                    
+                    if (n1 !== n2) {
+                        const d = dist(n1.x, n1.y, n2.x, n2.y);
+                        if (d < 120 && d > 20) {
+                            this.dataPackets.push(new DataPacket(n1, n2, Math.random() > 0.7));
+                        }
+                    }
+                }
+                
+                this.dataPackets = this.dataPackets.filter(p => p.update());
+                while (this.dataPackets.length > 50) {
+                    this.dataPackets.shift();
+                }
+            }
+            
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                const allNodes = [...this.nodes, ...this.ringNodes];
+                
+                for (const node of this.nodes) {
+                    node.drawTrail(ctx);
+                }
+                
+                for (let i = 0; i < allNodes.length; i++) {
+                    for (let j = i + 1; j < allNodes.length; j++) {
+                        const a = allNodes[i];
+                        const b = allNodes[j];
+                        const d = dist(a.x, a.y, b.x, b.y);
+                        
+                        let maxDist = 70;
+                        if (a.layer !== undefined && b.layer !== undefined) {
+                            maxDist = a.layer === b.layer ? 55 : 65;
+                            if (a.layer <= 1 && b.layer <= 1) maxDist = 50;
+                        }
+                        
+                        if (d < maxDist) {
+                            const strength = 1 - d / maxDist;
+                            const avgHighlight = ((a.highlightIntensity || 0) + (b.highlightIntensity || 0)) / 2;
+                            const opacity = strength * 0.25 * Math.min(a.opacity, b.opacity) + avgHighlight * 0.15;
+                            
+                            const hue = 195 + avgHighlight * 20;
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(a.x, a.y);
+                            ctx.lineTo(b.x, b.y);
+                            ctx.strokeStyle = `hsla(${hue}, 60%, 55%, ${opacity})`;
+                            ctx.lineWidth = 0.4 + strength * 0.5 + avgHighlight * 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                
+                for (const packet of this.dataPackets) {
+                    packet.draw(ctx);
+                }
+                
+                for (const node of this.ringNodes) {
+                    node.draw(ctx);
+                }
+                
+                for (const node of this.nodes) {
+                    node.draw(ctx);
+                }
+            }
+        }
+
+        // ============================================
+        // LIGHTHOUSE BEAM (with dynamic positioning)
+        // ============================================
+        class LighthouseBeam {
+            constructor(canvasId, coreElement, logoImage, logoWrapper) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.core = coreElement;
+                this.logoImage = logoImage;
+                this.logoWrapper = logoWrapper;
+                
+                this.currentAngle = Math.PI * 0.5;
+                this.targetAngle = Math.PI * 0.5;
+                this.sweepAngle = 0;
+                this.sweepSpeed = 0.006;
+                this.intensity = 1;
+                
+                // Lighthouse top position relative to image (approximately 11% from top, centered)
+                this.lighthouseTopRatio = 0.11;
+                
+                this.secondaryBeams = [
+                    { angleOffset: 0.18, length: 0.55, width: 0.12, opacity: 0.25 },
+                    { angleOffset: -0.18, length: 0.5, width: 0.1, opacity: 0.22 },
+                    { angleOffset: 0.09, length: 0.65, width: 0.08, opacity: 0.18 },
+                    { angleOffset: -0.09, length: 0.6, width: 0.09, opacity: 0.2 },
+                    { angleOffset: 0.25, length: 0.4, width: 0.06, opacity: 0.12 },
+                    { angleOffset: -0.25, length: 0.35, width: 0.05, opacity: 0.1 },
+                ];
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                const wrapperRect = this.logoWrapper.getBoundingClientRect();
+                const logoRect = this.logoImage.getBoundingClientRect();
+                
+                this.canvas.width = wrapperRect.width;
+                this.canvas.height = wrapperRect.height;
+                this.canvas.style.width = wrapperRect.width + 'px';
+                this.canvas.style.height = wrapperRect.height + 'px';
+                
+                // Calculate lighthouse top position relative to logo wrapper
+                // The logo image is centered in the wrapper, so we need to account for that
+                const logoTopOffset = logoRect.top - wrapperRect.top;
+                const logoHeight = logoRect.height;
+                
+                // Lighthouse top is approximately 11% from the top of the image
+                // Position relative to logo wrapper (canvas)
+                this.lightX = wrapperRect.width * 0.5; // Centered horizontally
+                this.lightY = logoTopOffset + (logoHeight * this.lighthouseTopRatio); // Top of lighthouse
+                
+                // Update light core position (relative to logo wrapper)
+                this.core.style.left = this.lightX + 'px';
+                this.core.style.top = this.lightY + 'px';
+                
+                // Update ring container position
+                const ringContainer = document.getElementById('ringContainer');
+                if (ringContainer) {
+                    ringContainer.style.left = this.lightX + 'px';
+                    ringContainer.style.top = this.lightY + 'px';
+                }
+            }
+            
+            update() {
+                // Recalculate light position on each frame to handle dynamic resizing
+                const wrapperRect = this.logoWrapper.getBoundingClientRect();
+                const logoRect = this.logoImage.getBoundingClientRect();
+                const logoTopOffset = logoRect.top - wrapperRect.top;
+                const logoHeight = logoRect.height;
+                
+                this.lightX = wrapperRect.width * 0.5;
+                this.lightY = logoTopOffset + (logoHeight * this.lighthouseTopRatio);
+                
+                // Update core and ring positions
+                this.core.style.left = this.lightX + 'px';
+                this.core.style.top = this.lightY + 'px';
+                const ringContainer = document.getElementById('ringContainer');
+                if (ringContainer) {
+                    ringContainer.style.left = this.lightX + 'px';
+                    ringContainer.style.top = this.lightY + 'px';
+                }
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const localMouseX = mouseX - rect.left;
+                const localMouseY = mouseY - rect.top;
+                
+                const dx = localMouseX - this.lightX;
+                const dy = localMouseY - this.lightY;
+                const mouseAngle = Math.atan2(dy, dx);
+                
+                const mouseDist = dist(localMouseX, localMouseY, this.lightX, this.lightY);
+                const mouseInfluence = mouseActive && mouseDist < 550 ? 
+                    Math.min(1, (550 - mouseDist) / 350) : 0;
+                
+                this.sweepAngle += this.sweepSpeed;
+                const sweepTarget = Math.PI * 0.5 + Math.sin(this.sweepAngle) * 0.7;
+                
+                this.targetAngle = lerp(sweepTarget, mouseAngle, mouseInfluence * 0.85);
+                
+                let angleDiff = this.targetAngle - this.currentAngle;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                
+                this.currentAngle += angleDiff * 0.035;
+                
+                this.intensity = 0.8 + Math.sin(time * 0.025) * 0.12 + Math.sin(time * 0.06) * 0.08;
+                
+                const coreScale = 0.92 + this.intensity * 0.12;
+                this.core.style.transform = `translateX(-50%) scale(${coreScale})`;
+                this.core.style.opacity = 0.85 + this.intensity * 0.15;
+            }
+            
+            drawBeam(ctx, angle, length, width, baseOpacity) {
+                const beamLength = 550 * length;
+                const beamWidth = width;
+                
+                ctx.save();
+                ctx.translate(this.lightX, this.lightY);
+                ctx.rotate(angle);
+                
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, beamLength);
+                gradient.addColorStop(0, `rgba(255, 252, 242, ${baseOpacity * this.intensity})`);
+                gradient.addColorStop(0.08, `rgba(255, 250, 225, ${baseOpacity * 0.75 * this.intensity})`);
+                gradient.addColorStop(0.25, `rgba(255, 242, 190, ${baseOpacity * 0.4 * this.intensity})`);
+                gradient.addColorStop(0.55, `rgba(255, 235, 160, ${baseOpacity * 0.15 * this.intensity})`);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(beamLength, -beamLength * beamWidth);
+                ctx.lineTo(beamLength, beamLength * beamWidth);
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                const lineGrad = ctx.createLinearGradient(0, 0, beamLength * 0.45, 0);
+                lineGrad.addColorStop(0, `rgba(255, 255, 252, ${baseOpacity * 0.5 * this.intensity})`);
+                lineGrad.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(beamLength * 0.45, 0);
+                ctx.strokeStyle = lineGrad;
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                for (const beam of this.secondaryBeams) {
+                    this.drawBeam(
+                        this.ctx,
+                        this.currentAngle + beam.angleOffset + Math.sin(time * 0.018 + beam.angleOffset * 8) * 0.025,
+                        beam.length,
+                        beam.width,
+                        beam.opacity
+                    );
+                }
+                
+                this.drawBeam(this.ctx, this.currentAngle, 1, 0.32, 0.45);
+                this.drawRays();
+            }
+            
+            drawRays() {
+                const ctx = this.ctx;
+                const rayCount = 16;
+                
+                for (let i = 0; i < rayCount; i++) {
+                    const angleOffset = (i / rayCount - 0.5) * 0.9;
+                    const rayAngle = this.currentAngle + angleOffset;
+                    const rayLength = 120 + Math.sin(time * 0.04 + i * 1.1) * 40;
+                    const rayOpacity = 0.025 + Math.sin(time * 0.025 + i * 0.7) * 0.015;
+                    
+                    const endX = this.lightX + Math.cos(rayAngle) * rayLength;
+                    const endY = this.lightY + Math.sin(rayAngle) * rayLength;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.lightX, this.lightY);
+                    ctx.lineTo(endX, endY);
+                    ctx.strokeStyle = `rgba(255, 250, 225, ${rayOpacity * this.intensity})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+            
+            get angle() { return this.currentAngle; }
+        }
+
+        // ============================================
+        // PARTICLES & BACKGROUND
+        // ============================================
+        class Sparkle {
+            constructor(x, y) {
+                this.x = x + rand(-20, 20);
+                this.y = y + rand(-20, 20);
+                this.vx = rand(-0.4, 0.4);
+                this.vy = rand(-1, -0.2);
+                this.size = rand(0.4, 2);
+                this.life = 1;
+                this.decay = rand(0.006, 0.02);
+                this.brightness = rand(0.4, 1);
+                this.wobblePhase = rand(0, Math.PI * 2);
+                this.wobbleSpeed = rand(0.04, 0.12);
+            }
+            
+            update() {
+                this.wobblePhase += this.wobbleSpeed;
+                this.x += this.vx + Math.sin(this.wobblePhase) * 0.25;
+                this.y += this.vy;
+                this.vy += 0.006;
+                this.life -= this.decay;
+                return this.life > 0;
+            }
+            
+            draw(ctx) {
+                const alpha = this.life * this.brightness;
+                
+                const glow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 3);
+                glow.addColorStop(0, `rgba(255, 252, 235, ${alpha})`);
+                glow.addColorStop(0.5, `rgba(255, 245, 210, ${alpha * 0.35})`);
+                glow.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 250, ${alpha})`;
+                ctx.fill();
+            }
+        }
+
+        class ParticleSystem {
+            constructor(canvasId, lightBeam) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.lightBeam = lightBeam;
+                this.particles = [];
+                this.spawnTimer = 0;
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+            }
+            
+            update() {
+                if (!this.lightBeam) return;
+                
+                this.spawnTimer++;
+                if (this.spawnTimer > 2) {
+                    this.particles.push(new Sparkle(this.lightBeam.lightX, this.lightBeam.lightY));
+                    this.spawnTimer = 0;
+                }
+                
+                this.particles = this.particles.filter(p => p.update());
+                while (this.particles.length > 60) this.particles.shift();
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                for (const p of this.particles) p.draw(this.ctx);
+            }
+        }
+
+        class BackgroundEffects {
+            constructor(canvasId, logoWrapper) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.logoWrapper = logoWrapper;
+                this.stars = [];
+                
+                this.resize();
+                this.createStars();
+                window.addEventListener('resize', () => { this.resize(); this.createStars(); });
+            }
+            
+            resize() {
+                const rect = this.logoWrapper.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+            }
+            
+            createStars() {
+                this.stars = [];
+                for (let i = 0; i < 150; i++) {
+                    this.stars.push({
+                        x: rand(0, this.canvas.width),
+                        y: rand(0, this.canvas.height),
+                        size: rand(0.2, 1.2),
+                        twinklePhase: rand(0, Math.PI * 2),
+                        twinkleSpeed: rand(0.008, 0.035),
+                        baseOpacity: rand(0.15, 0.45)
+                    });
+                }
+            }
+            
+            update() {
+                for (const star of this.stars) star.twinklePhase += star.twinkleSpeed;
+            }
+            
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                for (const star of this.stars) {
+                    const twinkle = (Math.sin(star.twinklePhase) + 1) * 0.5;
+                    const opacity = star.baseOpacity * (0.4 + twinkle * 0.6);
+                    this.ctx.beginPath();
+                    this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    this.ctx.fillStyle = `rgba(180, 215, 245, ${opacity})`;
+                    this.ctx.fill();
+                }
+            }
+        }
+
+        // ============================================
+        // MAIN INITIALIZATION
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const logoImage = document.getElementById('logoImage');
+            const logoWrapper = document.getElementById('logoWrapper');
+            
+            // Mouse tracking
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                if (!mouseActive) {
+                    mouseActive = true;
+                }
+            });
+            
+            document.addEventListener('mouseleave', () => {
+                mouseActive = false;
+            });
+            
+            const start = () => {
+                const networkConfig = {
+                    centerX: 0.5,
+                    centerY: 0.295,
+                    layers: [
+                        { minRadius: 65, maxRadius: 95, nodeCount: 25, minSize: 2, maxSize: 4.5 },
+                        { minRadius: 95, maxRadius: 130, nodeCount: 35, minSize: 1.8, maxSize: 4 },
+                        { minRadius: 130, maxRadius: 175, nodeCount: 45, minSize: 1.5, maxSize: 3.5 },
+                        { minRadius: 175, maxRadius: 220, nodeCount: 40, minSize: 1.2, maxSize: 3 },
+                        { minRadius: 220, maxRadius: 270, nodeCount: 35, minSize: 1, maxSize: 2.5 },
+                    ]
+                };
+                
+                const background = new BackgroundEffects('backgroundCanvas', logoWrapper);
+                const circuit = new CircuitBoard('circuitCanvas', logoWrapper);
+                const network = new DenseNetworkSystem('networkCanvas', networkConfig, logoWrapper);
+                const lightBeam = new LighthouseBeam('lightBeamCanvas', document.getElementById('lightCore'), logoImage, logoWrapper);
+                const particles = new ParticleSystem('particleCanvas', lightBeam);
+                
+                const animate = () => {
+                    time++;
+                    
+                    background.update();
+                    circuit.update();
+                    lightBeam.update();
+                    network.setLightAngle(lightBeam.angle, lightBeam.intensity);
+                    network.update();
+                    particles.update();
+                    
+                    background.draw();
+                    circuit.draw();
+                    network.draw();
+                    lightBeam.draw();
+                    particles.draw();
+                    
+                    requestAnimationFrame(animate);
+                };
+                
+                animate();
+            };
+            
+            if (logoImage.complete) start();
+            else logoImage.onload = start;
+        });
     </script>
 </body>
 </html>
-
-
-
 
