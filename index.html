@@ -121,6 +121,8 @@
             align-items: center;
             justify-content: center;
             padding: 2rem;
+            padding-top: 3rem; /* Extra top padding to ensure lighthouse isn't cut off */
+            padding-bottom: calc(2rem + 28px + 1.5rem + 1rem); /* Extra space for fixed footer logo */
             max-width: 900px;
             text-align: center;
         }
@@ -131,6 +133,7 @@
             margin-bottom: 2rem;
             width: min(500px, 80vw);
             height: auto;
+            overflow: visible; /* Allow light beam to extend beyond bounds */
         }
 
         .logo-glow {
@@ -190,6 +193,7 @@
         #lightBeamCanvas {
             z-index: 5;
             mix-blend-mode: screen;
+            overflow: visible; /* Allow light beam to extend beyond canvas bounds */
         }
 
         #particleCanvas {
@@ -358,6 +362,11 @@
             .tagline {
                 font-size: 1.1rem;
                 padding: 0 1rem;
+            }
+            
+            .container {
+                padding-top: 2rem; /* Less top padding on mobile */
+                padding-bottom: calc(2rem + 28px + 1.5rem + 0.5rem); /* Slightly less padding on mobile */
             }
         }
     </style>
@@ -968,9 +977,9 @@
                 }
                 
                 const ringConfigs = [
-                    { radius: 290, count: 45, minSize: 1.5, maxSize: 3 },
-                    { radius: 310, count: 50, minSize: 1.2, maxSize: 2.5 },
-                    { radius: 330, count: 55, minSize: 1, maxSize: 2 },
+                    { radius: 200, count: 45, minSize: 1.5, maxSize: 3 },
+                    { radius: 215, count: 50, minSize: 1.2, maxSize: 2.5 },
+                    { radius: 230, count: 55, minSize: 1, maxSize: 2 },
                 ].map(rc => ({
                     ...rc,
                     radius: rc.radius * (this.canvas.width / 750)
@@ -1090,8 +1099,8 @@
                 this.sweepSpeed = 0.006;
                 this.intensity = 1;
                 
-                // Lighthouse top position relative to image (approximately 11% from top, centered)
-                this.lighthouseTopRatio = 0.11;
+                // Lighthouse top position relative to image (approximately 16% from top for brightest part, centered)
+                this.lighthouseTopRatio = 0.16;
                 
                 this.secondaryBeams = [
                     { angleOffset: 0.18, length: 0.55, width: 0.12, opacity: 0.25 },
@@ -1110,30 +1119,36 @@
                 const wrapperRect = this.logoWrapper.getBoundingClientRect();
                 const logoRect = this.logoImage.getBoundingClientRect();
                 
-                this.canvas.width = wrapperRect.width;
-                this.canvas.height = wrapperRect.height;
-                this.canvas.style.width = wrapperRect.width + 'px';
-                this.canvas.style.height = wrapperRect.height + 'px';
+                // Make canvas larger to allow light beam to extend beyond logo bounds
+                const padding = 200; // Extra space for light beam extension
+                this.canvas.width = wrapperRect.width + (padding * 2);
+                this.canvas.height = wrapperRect.height + (padding * 2);
+                this.canvas.style.width = (wrapperRect.width + (padding * 2)) + 'px';
+                this.canvas.style.height = (wrapperRect.height + (padding * 2)) + 'px';
+                this.canvas.style.left = (-padding) + 'px';
+                this.canvas.style.top = (-padding) + 'px';
                 
                 // Calculate lighthouse top position relative to logo wrapper
                 // The logo image is centered in the wrapper, so we need to account for that
                 const logoTopOffset = logoRect.top - wrapperRect.top;
                 const logoHeight = logoRect.height;
                 
-                // Lighthouse top is approximately 11% from the top of the image
-                // Position relative to logo wrapper (canvas)
-                this.lightX = wrapperRect.width * 0.5; // Centered horizontally
-                this.lightY = logoTopOffset + (logoHeight * this.lighthouseTopRatio); // Top of lighthouse
+                // Lighthouse top is approximately 16% from the top of the image (brightest part)
+                // Canvas position includes padding, but light origin is relative to canvas
+                this.lightX = padding + (wrapperRect.width * 0.5); // Centered horizontally (canvas coordinates)
+                this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio); // Top of lighthouse (canvas coordinates)
                 
-                // Update light core position (relative to logo wrapper)
-                this.core.style.left = this.lightX + 'px';
-                this.core.style.top = this.lightY + 'px';
+                // Update light core position (relative to logo wrapper, not canvas)
+                const lightXWrapper = wrapperRect.width * 0.5; // Centered horizontally
+                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio); // Top of lighthouse
+                this.core.style.left = lightXWrapper + 'px';
+                this.core.style.top = lightYWrapper + 'px';
                 
-                // Update ring container position
+                // Update ring container position (relative to logo wrapper, not canvas)
                 const ringContainer = document.getElementById('ringContainer');
                 if (ringContainer) {
-                    ringContainer.style.left = this.lightX + 'px';
-                    ringContainer.style.top = this.lightY + 'px';
+                    ringContainer.style.left = lightXWrapper + 'px';
+                    ringContainer.style.top = lightYWrapper + 'px';
                 }
             }
             
@@ -1143,17 +1158,23 @@
                 const logoRect = this.logoImage.getBoundingClientRect();
                 const logoTopOffset = logoRect.top - wrapperRect.top;
                 const logoHeight = logoRect.height;
+                const padding = 200; // Match resize padding
                 
-                this.lightX = wrapperRect.width * 0.5;
-                this.lightY = logoTopOffset + (logoHeight * this.lighthouseTopRatio);
+                // Canvas coordinates (with padding)
+                this.lightX = padding + (wrapperRect.width * 0.5);
+                this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio);
                 
-                // Update core and ring positions
-                this.core.style.left = this.lightX + 'px';
-                this.core.style.top = this.lightY + 'px';
+                // Wrapper coordinates (for core and rings)
+                const lightXWrapper = wrapperRect.width * 0.5;
+                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio);
+                
+                // Update core and ring positions (relative to logo wrapper)
+                this.core.style.left = lightXWrapper + 'px';
+                this.core.style.top = lightYWrapper + 'px';
                 const ringContainer = document.getElementById('ringContainer');
                 if (ringContainer) {
-                    ringContainer.style.left = this.lightX + 'px';
-                    ringContainer.style.top = this.lightY + 'px';
+                    ringContainer.style.left = lightXWrapper + 'px';
+                    ringContainer.style.top = lightYWrapper + 'px';
                 }
                 
                 const rect = this.canvas.getBoundingClientRect();
@@ -1426,11 +1447,11 @@
                     centerX: 0.5,
                     centerY: 0.295,
                     layers: [
-                        { minRadius: 65, maxRadius: 95, nodeCount: 25, minSize: 2, maxSize: 4.5 },
-                        { minRadius: 95, maxRadius: 130, nodeCount: 35, minSize: 1.8, maxSize: 4 },
-                        { minRadius: 130, maxRadius: 175, nodeCount: 45, minSize: 1.5, maxSize: 3.5 },
-                        { minRadius: 175, maxRadius: 220, nodeCount: 40, minSize: 1.2, maxSize: 3 },
-                        { minRadius: 220, maxRadius: 270, nodeCount: 35, minSize: 1, maxSize: 2.5 },
+                        { minRadius: 45, maxRadius: 65, nodeCount: 25, minSize: 2, maxSize: 4.5 },
+                        { minRadius: 65, maxRadius: 90, nodeCount: 35, minSize: 1.8, maxSize: 4 },
+                        { minRadius: 90, maxRadius: 120, nodeCount: 45, minSize: 1.5, maxSize: 3.5 },
+                        { minRadius: 120, maxRadius: 155, nodeCount: 40, minSize: 1.2, maxSize: 3 },
+                        { minRadius: 155, maxRadius: 190, nodeCount: 35, minSize: 1, maxSize: 2.5 },
                     ]
                 };
                 
