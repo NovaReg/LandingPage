@@ -227,7 +227,7 @@
             border-radius: 50%;
             z-index: 7;
             pointer-events: none;
-            transform: translateX(-50%);
+            transform: translate(-50%, -50%); /* Center both X and Y on the origin point */
         }
 
         .ring-container {
@@ -486,7 +486,7 @@
                 this.canvas.style.width = rect.width + 'px';
                 this.canvas.style.height = rect.height + 'px';
                 this.centerX = this.canvas.width * 0.5;
-                this.centerY = this.canvas.height * 0.25; // Raised to match network center
+                this.centerY = this.canvas.height * 0.24; // Aligned with light origin
             }
             
             generate() {
@@ -1162,22 +1162,21 @@
                 // Canvas position includes padding, but light origin is relative to canvas
                 // Adjust for positioning: 5-10px right, 2-5px down (using ~7px right, ~3px down)
                 const lightOffsetX = 7; // Move right to correct position
-                const lightOffsetY = 28; // Move down for light cone origin (increased from 15 to 28)
-                const ringOffsetY = 5; // Separate offset for rings (raised compared to light cone)
+                const lightOffsetY = 28; // Move down for light cone origin
                 this.lightX = padding + (wrapperRect.width * 0.5) + lightOffsetX; // Centered horizontally + offset (canvas coordinates)
                 this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY; // Top of lighthouse + offset (canvas coordinates)
                 
-                // Update light core position (relative to logo wrapper, not canvas) - uses ring offset
-                const lightXWrapper = (wrapperRect.width * 0.5) + lightOffsetX; // Centered horizontally + offset
-                const coreYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio) + ringOffsetY; // Rings/core raised higher
+                // Update light core position - now centered on the same point as light cone origin
+                const lightXWrapper = (wrapperRect.width * 0.5) + lightOffsetX;
+                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY;
                 this.core.style.left = lightXWrapper + 'px';
-                this.core.style.top = coreYWrapper + 'px';
+                this.core.style.top = lightYWrapper + 'px';
                 
-                // Update ring container position (relative to logo wrapper, not canvas) - uses ring offset
+                // Update ring container position - same as light cone origin
                 const ringContainer = document.getElementById('ringContainer');
                 if (ringContainer) {
                     ringContainer.style.left = lightXWrapper + 'px';
-                    ringContainer.style.top = coreYWrapper + 'px';
+                    ringContainer.style.top = lightYWrapper + 'px';
                 }
             }
             
@@ -1189,24 +1188,23 @@
                 const logoHeight = logoRect.height;
                 const padding = Math.max(300, wrapperRect.width * 0.6); // Match resize padding
                 const lightOffsetX = 7; // Move right to correct position
-                const lightOffsetY = 28; // Move down for light cone origin (increased from 15 to 28)
-                const ringOffsetY = 5; // Separate offset for rings (raised compared to light cone)
+                const lightOffsetY = 28; // Move down for light cone origin
                 
                 // Canvas coordinates (with padding) - for light beam
                 this.lightX = padding + (wrapperRect.width * 0.5) + lightOffsetX;
                 this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY;
                 
-                // Wrapper coordinates (for core and rings) - uses ring offset
+                // Wrapper coordinates (for core and rings) - same as light cone origin
                 const lightXWrapper = (wrapperRect.width * 0.5) + lightOffsetX;
-                const coreYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio) + ringOffsetY;
+                const lightYWrapper = logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY;
                 
-                // Update core and ring positions (relative to logo wrapper)
+                // Update core and ring positions (relative to logo wrapper) - all centered on same point
                 this.core.style.left = lightXWrapper + 'px';
-                this.core.style.top = coreYWrapper + 'px';
+                this.core.style.top = lightYWrapper + 'px';
                 const ringContainer = document.getElementById('ringContainer');
                 if (ringContainer) {
                     ringContainer.style.left = lightXWrapper + 'px';
-                    ringContainer.style.top = coreYWrapper + 'px';
+                    ringContainer.style.top = lightYWrapper + 'px';
                 }
                 
                 const rect = this.canvas.getBoundingClientRect();
@@ -1477,7 +1475,8 @@
             const start = () => {
                 const networkConfig = {
                     centerX: 0.5,
-                    centerY: 0.25, // Raised from 0.295 to align with lighthouse beacon
+                    // Center aligned with light origin: lighthouseTopRatio (0.18) + offset (~0.05-0.06 for 28px)
+                    centerY: 0.24,
                     layers: [
                         // Tightened all layers to wrap closer around lighthouse
                         { minRadius: 30, maxRadius: 40, nodeCount: 20, minSize: 1.5, maxSize: 3 },
