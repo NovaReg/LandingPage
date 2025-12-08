@@ -173,6 +173,7 @@
             width: 100%;
             height: auto;
             position: relative;
+            z-index: 3; /* Above network (1) but below light elements (5-8) */
             filter: drop-shadow(0 20px 60px rgba(26, 107, 124, 0.3));
             animation: fadeIn 2s ease-out;
             display: block;
@@ -201,17 +202,17 @@
         }
 
         #networkCanvas {
-            z-index: 2;
+            z-index: 1; /* Behind the logo image */
         }
 
         #lightBeamCanvas {
-            z-index: 5;
+            z-index: 6;
             mix-blend-mode: screen;
             overflow: visible; /* Allow light beam to extend beyond canvas bounds */
         }
 
         #particleCanvas {
-            z-index: 6;
+            z-index: 7;
         }
 
         .light-core {
@@ -225,7 +226,7 @@
                 rgba(255, 220, 120, 0.3) 60%, 
                 transparent 100%);
             border-radius: 50%;
-            z-index: 7;
+            z-index: 8; /* In front of logo */
             pointer-events: none;
             transform: translate(-50%, -50%); /* Center both X and Y on the origin point */
         }
@@ -234,7 +235,7 @@
             position: absolute;
             width: 0;
             height: 0;
-            z-index: 3;
+            z-index: 5; /* In front of logo */
         }
 
         .light-ring {
@@ -244,7 +245,7 @@
             transform: translate(-50%, -50%);
             border-radius: 50%;
             border: 1px solid rgba(255, 240, 180, 0.25);
-            z-index: 3;
+            z-index: 5; /* In front of logo */
             pointer-events: none;
             animation: ringExpand 4s ease-out infinite;
         }
