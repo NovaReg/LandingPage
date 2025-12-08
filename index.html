@@ -1162,7 +1162,7 @@
                 // Lighthouse top is approximately 18% from the top of the image (brightest part)
                 // Canvas position includes padding, but light origin is relative to canvas
                 // Adjust for positioning: 5-10px right, 2-5px down (using ~7px right, ~3px down)
-                const lightOffsetX = 7; // Move right to correct position
+                const lightOffsetX = 12; // Move right to correct position (increased from 7 to 12)
                 const lightOffsetY = 12; // Raised from 28 to 12 to position at lamp
                 this.lightX = padding + (wrapperRect.width * 0.5) + lightOffsetX; // Centered horizontally + offset (canvas coordinates)
                 this.lightY = padding + logoTopOffset + (logoHeight * this.lighthouseTopRatio) + lightOffsetY; // Top of lighthouse + offset (canvas coordinates)
@@ -1188,7 +1188,7 @@
                 const logoTopOffset = logoRect.top - wrapperRect.top;
                 const logoHeight = logoRect.height;
                 const padding = Math.max(300, wrapperRect.width * 0.6); // Match resize padding
-                const lightOffsetX = 7; // Move right to correct position
+                const lightOffsetX = 12; // Move right to correct position (increased from 7 to 12)
                 const lightOffsetY = 12; // Raised from 28 to 12 to position at lamp
                 
                 // Canvas coordinates (with padding) - for light beam
@@ -1234,7 +1234,7 @@
                 this.intensity = 0.8 + Math.sin(time * 0.025) * 0.12 + Math.sin(time * 0.06) * 0.08;
                 
                 const coreScale = 0.92 + this.intensity * 0.12;
-                this.core.style.transform = `translateX(-50%) scale(${coreScale})`;
+                this.core.style.transform = `translate(-50%, -50%) scale(${coreScale})`;
                 this.core.style.opacity = 0.85 + this.intensity * 0.15;
             }
             
